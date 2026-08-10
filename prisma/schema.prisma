@@ -1,0 +1,548 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ===================== ENUMS =====================
+
+enum Role {
+  ADMIN
+  AGENT
+  BUYER
+}
+
+enum TransactionType {
+  SALE // Lbi3
+  RENT // Kra
+}
+
+enum RentPeriod {
+  LONG_TERM // Karawi
+  SEASONAL // Mouassami
+}
+
+enum PropertyCategory {
+  RESIDENTIAL // Dyor
+  COMMERCIAL // Mahallat
+  LAND // Aradi
+}
+
+enum PropertyType {
+  APARTMENT // Chakka
+  VILLA
+  RIAD
+  BUREAUX
+  MAGASIN
+  FERME
+  LOTISSEMENT
+  TERRAIN_CONSTRUCTIBLE
+  TERRAIN_AGRICOLE
+}
+
+enum LegalStatus {
+  TITRE_FONCIER // Mouhafada
+  MELKIA
+  ADOULAIRE
+  NON_TITRE
+}
+
+enum ListingStatus {
+  DRAFT
+  PENDING_REVIEW
+  ACTIVE
+  SOLD
+  RENTED
+  ARCHIVED
+  REJECTED
+}
+
+enum PromotionTier {
+  FEATURED // "Vedette / المميزة"
+  TOP_BANNER // Homepage spotlight
+}
+
+enum PromotionStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+}
+
+enum PaymentProvider {
+  CMI
+  STRIPE
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+  CANCELLED
+}
+
+enum PackageType {
+  FEATURED
+  TOP_BANNER
+  AGENT_SUBSCRIPTION
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  CONVERTED
+  CLOSED
+  LOST
+}
+
+enum LeadChannel {
+  WHATSAPP
+  WEBSITE
+  PHONE
+  OTHER
+}
+
+enum MessageDirection {
+  INBOUND
+  OUTBOUND
+}
+
+// ===================== AUTH / USERS =====================
+
+model User {
+  id             String    @id @default(cuid())
+  name           String?
+  email          String?   @unique
+  emailVerified  DateTime?
+  passwordHash   String?
+  image          String?
+  phone          String?   @unique
+  whatsappNumber String?
+  whatsappOptIn  Boolean   @default(false)
+  role           Role      @default(BUYER)
+  isVerified     Boolean   @default(false)
+  isSuspended    Boolean   @default(false)
+  agencyName     String?
+  billingAddress String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  properties       Property[]
+  leadsAssigned    Lead[]         @relation("AssignedAgent")
+  payments         Payment[]
+  subscriptions    Subscription[]
+  promotions       Promotion[]
+  invoices         Invoice[]
+  whatsappLogs     WhatsAppLog[]
+  savedSearches    SavedSearch[]
+
+  @@index([role])
+  @@index([phone])
+  @@index([whatsappNumber])
+}
+
+// ===================== GEOGRAPHY (Morocco) =====================
+
+model Region {
+  id         String @id @default(cuid())
+  code       String @unique
+  name       String
+  nameAr     String
+  cities     City[]
+  properties Property[]
+
+  @@index([code])
+}
+
+model City {
+  id        String @id @default(cuid())
+  code      String @unique
+  name      String
+  nameAr    String
+  latitude  Float?
+  longitude Float?
+  regionId  String
+  region    Region         @relation(fields: [regionId], references: [id], onDelete: Cascade)
+  neighborhoods Neighborhood[]
+  properties  Property[]
+
+  @@index([regionId, code])
+}
+
+model Neighborhood {
+  id        String    @id @default(cuid())
+  code      String    @unique
+  name      String
+  nameAr    String
+  cityId    String
+  city      City      @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  latitude  Float?
+  longitude Float?
+  properties Property[]
+  neighborhoodScores NeighborhoodScore[]
+
+  @@index([cityId])
+}
+
+// ===================== AMENITIES =====================
+
+model Amenity {
+  id         String   @id @default(cuid())
+  slug       String   @unique
+  label      String
+  labelAr    String?
+  icon       String?
+  properties PropertyAmenity[]
+
+  @@index([slug])
+}
+
+model PropertyAmenity {
+  propertyId String
+  amenityId  String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  amenity    Amenity  @relation(fields: [amenityId], references: [id], onDelete: Cascade)
+
+  @@id([propertyId, amenityId])
+}
+
+// ===================== PROPERTY =====================
+
+model Property {
+  id              String          @id @default(cuid())
+  slug            String          @unique
+  title           String
+  description     String
+  transactionType TransactionType @default(SALE)
+  rentPeriod      RentPeriod?
+  category        PropertyCategory
+  type            PropertyType
+  legalStatus     LegalStatus     @default(NON_TITRE)
+  titleDeedRef    String? // Mouhafada / Titre Foncier number
+  hasTitleDeed    Boolean         @default(false)
+
+  // Financials (MAD)
+  price         Decimal @db.Decimal(14, 2)
+  currency      String  @default("MAD")
+  rentFrequency String? @db.VarChar(8) // "monthly" | "yearly"
+
+  // Dimensions
+  plotAreaM2   Decimal? @db.Decimal(12, 2)
+  builtAreaM2  Decimal? @db.Decimal(12, 2)
+  floors       Int?
+  density      String? // Zoned density R+2 / R+5 (commercial lands)
+
+  // Attributes
+  rooms        Int?
+  bathrooms    Int?
+  floorLevel   Int?
+  parkingSpots Int?
+
+  // Location
+  regionId       String
+  cityId         String
+  neighborhoodId String?
+  address        String?
+  latitude       Float?
+  longitude      Float?
+  mapPolygon     Json? // GeoJSON polygon / bounding box
+
+  // Feature flags (indexed filtering)
+  hasElevator Boolean @default(false)
+  hasPool     Boolean @default(false)
+  hasTerrace  Boolean @default(false)
+  hasSecurity Boolean @default(false)
+  furnished   Boolean @default(false)
+
+  // Media
+  coverImage    String[]
+  galleryImages String[] @default([])
+
+  // Import origin (scraping / bulk) for dedup & provenance
+  source     String? // e.g. "AVITO"
+  externalId String? // listing id on the source site
+  externalUrl String?
+  lastSeenAt DateTime? // last time the source listing was observed
+
+  // Moderation & stats
+  listingStatus ListingStatus @default(DRAFT)
+  viewsCount    Int           @default(0)
+  publishedAt   DateTime?
+
+  // Monetization (denormalized for fast reads)
+  isFeatured        Boolean   @default(false)
+  featuredExpiresAt DateTime?
+  featuredRank      Int       @default(0)
+
+  // Relations
+  ownerId     String
+  owner       User               @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  region      Region             @relation(fields: [regionId], references: [id])
+  city        City               @relation(fields: [cityId], references: [id])
+  neighborhood Neighborhood?     @relation(fields: [neighborhoodId], references: [id])
+  amenities   PropertyAmenity[]
+  leads       Lead[]
+  payments    Payment[]
+  promotions  Promotion[]
+  priceHistory PriceHistory[]
+  reviews      PropertyReview[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([transactionType, category, type])
+  @@index([listingStatus, isFeatured, featuredRank])
+  @@index([featuredExpiresAt])
+  @@index([regionId, cityId, neighborhoodId])
+  @@index([price, currency])
+  @@index([plotAreaM2])
+  @@index([builtAreaM2])
+  @@index([legalStatus])
+  @@index([latitude, longitude])
+  @@index([createdAt])
+  @@index([ownerId, listingStatus])
+  @@index([source, listingStatus])
+  @@unique([source, externalId])
+}
+
+// ===================== MONETIZATION =====================
+
+model PackagePlan {
+  id           String   @id @default(cuid())
+  name         String
+  description  String?
+  type         PackageType
+  priceMAD     Decimal  @db.Decimal(14, 2)
+  listingCredits Int? // bulk listing credits (agent subscriptions)
+  durationDays Int? // featured / banner duration
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  subscriptions Subscription[]
+
+  @@index([type, isActive])
+}
+
+model Subscription {
+  id                     String           @id @default(cuid())
+  agentId                String
+  agent                  User             @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  packageId              String
+  package                PackagePlan      @relation(fields: [packageId], references: [id])
+  status                 SubscriptionStatus @default(ACTIVE)
+  listingCreditsRemaining Int?
+  startsAt               DateTime         @default(now())
+  expiresAt              DateTime?
+  createdAt              DateTime         @default(now())
+
+  @@index([agentId, status])
+  @@index([expiresAt, status])
+}
+
+model Payment {
+  id          String         @id @default(cuid())
+  reference   String         @unique // "PAY-XXXXXX" internal reference
+  agentId     String
+  agent       User           @relation(fields: [agentId], references: [id])
+  propertyId  String?
+  property    Property?      @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  amount      Decimal        @db.Decimal(14, 2)
+  currency    String         @default("MAD")
+  provider    PaymentProvider
+  status      PaymentStatus  @default(PENDING)
+  providerRef String? // CMI oid / Stripe checkout session id
+  checkoutUrl String?
+  hash        String? // signed payload (CMI HASH)
+  rawCallback Json? // raw gateway payload for audit
+  metadata    Json?
+  failureReason String?
+  paidAt      DateTime?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  invoice    Invoice?
+  promotion  Promotion? // back-relation; FK lives on Promotion.paymentId
+
+  @@index([agentId, status])
+  @@index([provider, providerRef])
+  @@index([propertyId])
+  @@index([status, createdAt])
+}
+
+model Promotion {
+  id          String          @id @default(cuid())
+  propertyId  String
+  property    Property        @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  agentId     String
+  agent       User            @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  tier        PromotionTier   @default(FEATURED)
+  status      PromotionStatus @default(ACTIVE)
+  durationDays Int
+  startsAt    DateTime        @default(now())
+  expiresAt   DateTime
+  paymentId   String? @unique
+  payment     Payment? @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  pricePaid   Decimal?        @db.Decimal(14, 2)
+  currency    String          @default("MAD")
+  createdAt   DateTime        @default(now())
+
+  @@index([status, expiresAt])
+  @@index([propertyId])
+  @@index([agentId, tier])
+}
+
+// ===================== LEADS & WHATSAPP =====================
+
+model Lead {
+  id          String      @id @default(cuid())
+  propertyId  String?
+  property    Property?   @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  buyerName   String?
+  buyerPhone  String
+  buyerMessage String?
+  agentId     String?
+  agent       User?       @relation("AssignedAgent", fields: [agentId], references: [id], onDelete: SetNull)
+  channel     LeadChannel @default(WHATSAPP)
+  status      LeadStatus  @default(NEW)
+  budgetMAD   Decimal?    @db.Decimal(14, 2)
+  cityName    String?
+  note        String?
+  sourceRef   String? // whatsapp message id / campaign
+  claimedById String?
+  claimedAt   DateTime?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([agentId, status])
+  @@index([propertyId])
+  @@index([channel, createdAt])
+}
+
+model WhatsAppLog {
+  id        String           @id @default(cuid())
+  messageId String           @unique
+  direction MessageDirection
+  fromPhone String?
+  toPhone   String?
+  payload   Json
+  status    String // queued | sent | delivered | read | failed | processed
+  error     String?
+  leadId    String?
+  agentId   String?
+  agent     User?            @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  createdAt DateTime         @default(now())
+
+  @@index([direction, status])
+  @@index([fromPhone])
+}
+
+// ===================== BILLING / AUDIT =====================
+
+model Invoice {
+  id        String        @id @default(cuid())
+  number    String        @unique // "INV-2024-00001"
+  paymentId String        @unique
+  payment   Payment       @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  agentId   String
+  agent     User          @relation(fields: [agentId], references: [id], onDelete: Restrict)
+  amount    Decimal       @db.Decimal(14, 2)
+  currency  String        @default("MAD")
+  status    PaymentStatus @default(COMPLETED)
+  pdfUrl    String?
+  issuedAt  DateTime      @default(now())
+
+  @@index([agentId, issuedAt])
+  @@index([number])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  actorRole  Role?
+  action     String
+  entityType String?
+  entityId   String?
+  metadata   Json?
+  ip         String?
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([actorId, createdAt])
+}
+
+// ===================== NEIGHBORHOOD SCORING =====================
+
+model NeighborhoodScore {
+  id            String   @id @default(cuid())
+  neighborhoodId String
+  safety        Int      @default(3) // 1-5
+  schools       Int      @default(3)
+  transport     Int      @default(3)
+  shopping      Int      @default(3)
+  nightlife     Int      @default(3)
+  greenery      Int      @default(3)
+  noise         Int      @default(3) // inverted: lower = quieter = better
+  avgPriceM2    Decimal? @db.Decimal(12, 2)
+  totalReviews  Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  neighborhood  Neighborhood @relation(fields: [neighborhoodId], references: [id])
+
+  @@unique([neighborhoodId])
+}
+
+// ===================== PRICE HISTORY =====================
+
+model PriceHistory {
+  id          String   @id @default(cuid())
+  propertyId  String
+  price       Decimal  @db.Decimal(14, 2)
+  recordedAt  DateTime @default(now())
+  source      String?  // "listed", "sold", "estimated"
+  property    Property @relation(fields: [propertyId], references: [id])
+
+  @@index([propertyId, recordedAt])
+}
+
+// ===================== SAVED SEARCH =====================
+
+model SavedSearch {
+  id              String    @id @default(cuid())
+  userId          String
+  name            String
+  filters         Json      // stores the filter state
+  notifyEmail     Boolean   @default(false)
+  notifyWhatsApp  Boolean   @default(false)
+  isActive        Boolean   @default(true)
+  lastNotifiedAt  DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  user            User      @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+// ===================== PROPERTY REVIEWS =====================
+
+model PropertyReview {
+  id           String   @id @default(cuid())
+  propertyId   String
+  userId       String?
+  reviewerName String
+  rating       Int      // 1-5
+  comment      String?
+  isVerified   Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  property     Property @relation(fields: [propertyId], references: [id])
+
+  @@index([propertyId, createdAt])
+}
