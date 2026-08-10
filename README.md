@@ -199,6 +199,33 @@ prisma/
 - **Lead / WhatsAppLog** — buyer intent + message audit
 - **Invoice / AuditLog** — PDF receipts + immutable audit trail
 
+## Data Sources
+
+| Source | Properties | Status |
+|--------|-----------|--------|
+| **Mubawab.ma** | 19,499 | Active scraping pipeline |
+| **Avito.ma** | 219 | Active (requires proxy for Cloudflare) |
+| **Total** | **19,718** | 159 cities, 12 regions |
+
+### Mubawab Pipeline
+- Full HTML parsing with cheerio
+- Automatic category/type normalization
+- City resolution against database
+- Deduplication via external ID
+
+### Avito Pipeline
+- robots.txt aware, retry with backoff
+- Cloudflare detection + proxy support
+- Price parsing, attribute inference from title
+- `--moderate` flag for admin review before publishing
+
+```bash
+# Manual scrape commands
+npm run scrape:mubawab                    # Scrape Mubawab
+npm run scrape:avito -- --url=<url>       # Scrape Avito
+npm run scrape:avito -- --url=<url> --pages=3 --moderate  # With moderation
+```
+
 ---
 
 ## Security
