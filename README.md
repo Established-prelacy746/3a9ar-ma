@@ -1,5 +1,16 @@
 # 3A9AR.ma
 
+[![CI](https://github.com/soufianeoi/3a9ar-ma/actions/workflows/ci.yml/badge.svg)](https://github.com/soufianeoi/3a9ar-ma/actions)
+[![GitHub release](https://img.shields.io/github/v/release/soufianeoi/3a9ar-ma)](https://github.com/soufianeoi/3a9ar-ma/releases)
+[![License](https://img.shields.io/github/license/soufianeoi/3a9ar-ma)](https://github.com/soufianeoi/3a9ar-ma/blob/master/LICENSE)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/soufianeoi/3a9ar-ma/pulls)
+[![GitHub stars](https://img.shields.io/github/stars/soufianeoi/3a9ar-ma?style=social)](https://github.com/soufianeoi/3a9ar-ma/stargazers)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white)
+![Next.js](https://img.shields.io/badge/Next.js-000000?style=flat&logo=nextdotjs&logoColor=white)
+![Prisma](https://img.shields.io/badge/Prisma-2D3748?style=flat&logo=prisma&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=flat&logo=postgresql&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat&logo=docker&logoColor=white)
+
 Moroccan real estate platform. 19,718 properties from Mubawab & Avito, covering 159 cities in 12 regions. FR/EN/AR with full RTL Arabic support.
 
 ## What it does
