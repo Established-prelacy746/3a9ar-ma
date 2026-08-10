@@ -1,0 +1,26 @@
+name: Feature Request
+description: Suggest a feature for 3A9AR.ma
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: "A great product is built from great ideas. Tell us yours."
+  - type: input
+    id: problem
+    attributes:
+      label: Problem
+      description: What problem does this solve for Moroccan property buyers/agents?
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: How should it work?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Any other approaches?
